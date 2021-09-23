@@ -76,36 +76,27 @@ namespace Lift
             // сначала лифт развозит всех в одном направлении и по пути  может подбирать людей,
             // которым в тоже направление
             // upd: на менюшки есть 2 кнопки [ вниз и вверх ]
-
-            while(ListOfPerson.Count != 0 || ListOnButton.Count != 0)
+            
+            while (CurrentFloor != CountFloor)
             {
-                while (CurrentFloor != CountFloor)
-                {
-                    // сортируем список, относительно необх. этажей
-                    ListOfPerson.Sort(
-                                    (x,y) => x.RequiredFloor.CompareTo(y.RequiredFloor)
-                                    );     
-                    
-                    // 1 или более людей выходят на нужном этаже                                       
-                    while(CurrentFloor == ListOfPerson.FirstOrDefault()?.RequiredFloor)
-                    {
-                        ExitOfPerson();
-                        if (ListOfPerson.Count == 0) break;
-                    }                    
-                    
-                    GenerateOnButton();
-                    TryComeNewPersons();
-                    GoUpstairs();
-
-                    while (CurrentFloor == ListOfPerson.FirstOrDefault()?.RequiredFloor)
-                    {
-                        ExitOfPerson();
-                        if (ListOfPerson.Count == 0) break;
-                    }
-                }
-                Console.WriteLine($"{ListOnButton.Count}");
+                // сортируем список, относительно необх. этажей
+                ListOfPerson.Sort(
+                    (x,y) => x.RequiredFloor.CompareTo(y.RequiredFloor));
+                // 1 или более людей выходят на нужном этаже                                       
+                CheckForExit();
+                GenerateOnButton();
+                TryComeNewPersons();
+                GoUpstairs();                    
             }
-            Console.WriteLine("2");
+            CheckForExit();                        
+        }
+
+        public void CheckForExit()
+        {
+            while (CurrentFloor == ListOfPerson.FirstOrDefault()?.RequiredFloor)
+            {
+                ExitOfPerson();               
+            }
         }
 
         public void CreatePerson(int requiredFloor = 0)
@@ -113,7 +104,7 @@ namespace Lift
             var person = new Person()
             {
                 Weight = new Random().Next(40, 120),
-                RequiredFloor = requiredFloor != 0 ? requiredFloor : new Random().Next(CurrentFloor+1, CountFloor)
+                RequiredFloor = requiredFloor == 0 ? new Random().Next(CurrentFloor+1, CountFloor) : requiredFloor  
                 //todo  люди едут только выше (чтобы программа не была бесконечной)
             };
             AddPerson(person);
@@ -122,14 +113,22 @@ namespace Lift
         public void TryComeNewPersons()
         {
             if (ListOnButton.Count == 0) return;
+            var isCreate = false;
 
             foreach (var item in ListOnButton)
             {
                 if(item == CurrentFloor)
                 {
-                    CreatePerson(item);                   
+                    CreatePerson();
+                    isCreate = true;
                 }
             }
+
+            if (isCreate)
+            {
+                ListOnButton.RemoveAll(
+                    x => x == CurrentFloor);
+            }            
         }
 
         public void GenerateOnButton()
