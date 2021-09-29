@@ -10,8 +10,9 @@ namespace Lift
         static void Main(string[] args)
         {
             var elevator = new Elevator(50, 650);
-            elevator.WorkOfElevator();                                   
+            elevator.WorkOfElevator();
             
+          
         }
     }
 }

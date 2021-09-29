@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace Lift
 {
+    // todo minimalFloor && maxflooor сделать полями и добавить метод постоянного отслеживания 
     public class Elevator
     {
         public int LiftCapacity { get; private set; }
@@ -14,11 +15,24 @@ namespace Lift
         public List<Person> ListOfPerson { get; private set; } = new();
         public List<int> ListOnButton { get; private set; } = new();
 
+        private Random _random = new();
+        private Directions _totalDirection = new();
+
+        private delegate void ElevatorHandler();
+        private event ElevatorHandler SortEvent;
+
+        private void SetRanomDirections() => _totalDirection = (Directions)_random.Next(0, 2);
+
         public Elevator(int countFloor, int liftCapacity)
         {            
             LiftCapacity = liftCapacity;
             CountFloor = countFloor;
+            SetRanomDirections();
 
+            if(_totalDirection == Directions.Down)
+            {
+                CurrentFloor = CountFloor;
+            }
             // first init
             if (ListOfPerson.Count == 0)
             {
@@ -35,20 +49,20 @@ namespace Lift
             }
             else
             {
-                Console.WriteLine("Это последний этаж");
-            }         
+                Console.WriteLine("Последний этаж достигнут");
+            }          
         }
 
         public void GoDownstairs()
         {
             if(CurrentFloor > 1)
             {
-                Console.WriteLine("Едем вниз");
+                Console.WriteLine("Едем вниз {0}", CurrentFloor);
                 CurrentFloor--;
             }
             else
             {
-                Console.WriteLine("Это первый этаж, ниже некуда");
+                Console.WriteLine("Первый этаж достигнут");
             }
         }        
 
@@ -70,30 +84,42 @@ namespace Lift
                 Console.WriteLine("Человек не зашел в лифт.");
             }
         }
-        
+        // события sortevent & DirectEvent (goupst,godownst) & method CheckCoord(minflr,maxflr)
         public void WorkOfElevator()
-        {                       
-            // сначала лифт развозит всех в одном направлении и по пути  может подбирать людей,
-            // которым в тоже направление
-            // upd: на менюшки есть 2 кнопки [ вниз и вверх ]
-            
-            while (CurrentFloor != CountFloor)
+        {
+            Func<Elevator, bool> predicate = x => x.CurrentFloor == ListOfPerson.FirstOrDefault()?.RequiredFloor;
+
+            if (_totalDirection == Directions.Up)
+            {
+                SortEvent = new ElevatorHandler(SortUp);                
+            }
+            else if(_totalDirection == Directions.Down)
+            {
+                SortEvent = new ElevatorHandler(SortDown);
+                
+            }
+
+            while (ListOnButton.Count != 0
+                || ListOfPerson.Count != 0)
             {
                 // сортируем список, относительно необх. этажей
-                ListOfPerson.Sort(
-                    (x,y) => x.RequiredFloor.CompareTo(y.RequiredFloor));
+                SortEvent?.Invoke();
+                
                 // 1 или более людей выходят на нужном этаже                                       
-                CheckForExit();
-                GenerateOnButton();
+                CheckForExit(predicate);
+
+                TryGenerateOnButton();
                 TryComeNewPersons();
-                GoUpstairs();                    
+                if (_totalDirection == Directions.Up) GoUpstairs();
+                else GoDownstairs();
             }
-            CheckForExit();                        
+            CheckForExit(predicate);                        
         }
 
-        public void CheckForExit()
+        // Func event
+        public void CheckForExit(Func<Elevator ,bool> predicate)
         {
-            while (CurrentFloor == ListOfPerson.FirstOrDefault()?.RequiredFloor)
+            while (predicate(this))
             {
                 ExitOfPerson();               
             }
@@ -101,12 +127,18 @@ namespace Lift
 
         public void CreatePerson(int requiredFloor = 0)
         {
+            var isUp = _totalDirection == Directions.Up;
+
+            var minimalFloor = isUp ? CurrentFloor + 1 : 1;
+            var maximumFloor = isUp ? CountFloor : CurrentFloor;
+
             var person = new Person()
             {
-                Weight = new Random().Next(40, 120),
-                RequiredFloor = requiredFloor == 0 ? new Random().Next(CurrentFloor+1, CountFloor) : requiredFloor  
-                //todo  люди едут только выше (чтобы программа не была бесконечной)
+                Weight = _random.Next(40, 120),
+                RequiredFloor = requiredFloor == 0 ? _random.Next(minimalFloor, maximumFloor) : requiredFloor
             };
+            
+            
             AddPerson(person);
         }
 
@@ -130,23 +162,44 @@ namespace Lift
                     x => x == CurrentFloor);
             }            
         }
-
-        public void GenerateOnButton()
+        // добавить 2 параметра int
+        public void TryGenerateOnButton()
         {
-            var result = new Random().Next(1, 10);
-
-            if(result % 4 == 0)
+            var result = _random.Next(1, 15);
+            
+            if(result == 9)
             {
+                var isUp = _totalDirection == Directions.Up;
+
+                var minimalFloor = isUp ? CurrentFloor + 1 : 1;
+                var maximumFloor = isUp ? CountFloor : CurrentFloor;
+
+                if (minimalFloor == CountFloor) 
+                {
+                    return; 
+                }
+
                 ListOnButton.Add(
-                    new Random().Next(CurrentFloor+1, CountFloor)
+                    _random.Next(minimalFloor, maximumFloor)
                     );
             }
         }
-
+        // Func e -
         public void ExitOfPerson()
         {
             ListOfPerson.Remove(ListOfPerson.First());
             Console.WriteLine("Человек вышел из лифта на {0} этаже, осталось {1}", CurrentFloor, ListOfPerson.Count);
+        }
+
+        private void SortUp()
+        {
+            // (x, y) => x.RequiredFloor.CompareTo(y.RequiredFloor)
+            ListOfPerson.Sort((x, y) => x.RequiredFloor.CompareTo(y.RequiredFloor));
+        }
+        private void SortDown()
+        {
+            // (x, y) => x.RequiredFloor.CompareTo(y.RequiredFloor)
+            ListOfPerson.Sort((x, y) => y.RequiredFloor.CompareTo(x.RequiredFloor));
         }
     }
 }
